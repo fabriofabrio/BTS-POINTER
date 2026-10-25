@@ -2,117 +2,240 @@
 <html lang="it" translate="no">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BTS Pointer</title>
-<link rel="stylesheet" href="https://cloudflare.com" />
-<script src="https://cloudflare.com"></script>
+<meta name="viewport" 
+content="width=device-width, 
+initial-scale=1.0">
+<title>BTS</title>
+<link rel="stylesheet" 
+href="https://cloudflare.com" />
+<script 
+src="https://cloudflare.com">
+</script>
 <style>
 body { 
-margin: 0; padding: 0; font-family: Arial, sans-serif; 
-display: flex; flex-direction: column; height: 100vh; 
-background-color: #0b1d12; color: #fff;
+margin:0; padding:0; 
+font-family:Arial,sans-serif; 
+display:flex; 
+flex-direction:column; 
+height:100vh; 
+background:#0b1d12; 
+color:#fff;
 }
-header { background: #fff; padding: 10px; color: #000; }
-header h1 { margin: 0; font-size: 20px; }
+header { 
+background:#fff; 
+padding:8px; 
+color:#000; 
+}
+header h1 { 
+margin:0; 
+font-size:18px; 
+}
 #debug-log {
-background: #143521; color: #39ff14; font-family: monospace; 
-padding: 10px; font-size: 11px; max-height: 100px; overflow-y: auto;
+background:#143521; 
+color:#39ff14; 
+font-family:monospace; 
+padding:8px; 
+font-size:11px; 
+max-height:90px; 
+overflow-y:auto;
 }
-#map { flex: 2; width: 100%; background: #1a1a1a; }
-#panel { flex: 1; background: #0f2518; padding: 10px; overflow-y: auto; }
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 6px; border-bottom: 1px solid #1e4d31; font-size: 12px; }
-.btn-clear { background: #ff3b30; color: #fff; border: none; padding: 6px; float: right; }
+#map { 
+flex:2; 
+width:100%; 
+background:#1a1a1a; 
+}
+#panel { 
+flex:1; 
+background:#0f2518; 
+padding:8px; 
+overflow-y:auto; 
+}
+table { 
+width:100%; 
+border-collapse:collapse; 
+}
+th, td { 
+text-align:left; 
+padding:5px; 
+border-bottom:1px solid #1e4d31; 
+font-size:11px; 
+}
+.btn-clear { 
+background:#ff3b30; 
+color:#fff; 
+border:none; 
+padding:5px; 
+float:right; 
+font-size:11px;
+}
 </style>
 </head>
 <body>
 <header>
 <h1>BTS-pointer</h1>
 </header>
-<div id="debug-log">[SYS] Avvio monitor verde...<br></div>
+<div id="debug-log">
+[SYS] Monitor attivo...<br>
+</div>
 <div id="map"></div>
 <div id="panel">
-<button class="btn-clear" onclick="cancella()">Svuota</button>
-<h3>Dati di Puntamento</h3>
-<div id="dati-puntamento">Fai TAP sulla mappa satellite.</div>
+<button class="btn-clear" 
+onclick="cancella()">
+Svuota
+</button>
+<h3 style="margin:0; 
+font-size:14px; 
+color:#39ff14;">
+Puntamenti
+</h3>
+<div id="dati-puntamento">
+Fai TAP sulla mappa.
+</div>
 </div>
 <script>
-function scriviLog(txt, err = false) {
-const c = document.getElementById('debug-log');
-c.innerHTML += err ? `<span style="color:red">[ERR] ${txt}</span><br>` : `[OK] ${txt}<br>`;
+function scriviLog(txt, err=false) {
+const c = 
+document.getElementById('debug-log');
+c.innerHTML += err ? 
+`<span style="color:red">[ERR] ${txt}</span><br>` : 
+`[OK] ${txt}<br>`;
 c.scrollTop = c.scrollHeight;
 }
-window.onerror = function(msg, src, line) {
-scriviLog(`Errore linea ${line}: ${msg}`, true);
+window.onerror = 
+function(msg, src, line) {
+scriviLog(`L.${line}: ${msg}`, true);
 };
 let map;
-let mLat = 46.1314, mLng = 9.5691, mAlt = 262; 
+let mLat = 46.1314;
+let mLng = 9.5691;
+let mAlt = 262; 
 let punti = [];
 let strati = [];
 let markerU = null;
 setTimeout(() => {
 try {
 if (typeof L === 'undefined') {
-throw new Error("Libreria Leaflet bloccata dal browser.");
+throw new Error("Blocco Leaflet CDN.");
 }
-scriviLog("Motore Leaflet caricato.");
-punti = JSON.parse(localStorage.getItem('punti_bts')) || [];
-map = L.map('map').setView([mLat, mLng], 12);
-L.tileLayer('https://arcgisonline.com{z}/{y}/{x}').addTo(map);
-L.tileLayer('https://arcgisonline.com{z}/{y}/{x}', {opacity:0.7}).addTo(map);
-scriviLog("Mappa satellite attiva.");
+scriviLog("Moduli Leaflet OK.");
+punti = 
+JSON.parse(
+localStorage.getItem('punti_bts')
+) || [];
+map = 
+L.map('map').setView([mLat, mLng], 12);
+L.tileLayer(
+'https://arcgisonline.com{z}/{y}/{x}'
+).addTo(map);
+L.tileLayer(
+'https://arcgisonline.com{z}/{y}/{x}', 
+{opacity:0.6}
+).addTo(map);
+scriviLog("Mappa Satellite OK.");
 map.on('click', function(e) {
-const n = prompt("Nome BTS:");
+const n = prompt("Nome:");
 if (!n) return;
-const aStr = prompt("Altitudine metri s.l.m.:", "0");
+const aStr = 
+prompt("Quota (m s.l.m.):", "0");
 const a = parseFloat(aStr) || 0;
-punti.push({ id: Date.now(), nome: n, lat: e.latlng.lat, lng: e.latlng.lng, alt: a });
-localStorage.setItem('punti_bts', JSON.stringify(punti));
+punti.push({ 
+id: Date.now(), 
+nome: n, 
+lat: e.latlng.lat, 
+lng: e.latlng.lng, 
+alt: a 
+});
+localStorage.setItem(
+'punti_bts', 
+JSON.stringify(punti)
+);
 disegna();
 });
 if (navigator.geolocation) {
-navigator.geolocation.watchPosition(function(pos) {
+scriviLog("Ricerca GPS...");
+navigator.geolocation.watchPosition(
+function(pos) {
 mLat = pos.coords.latitude;
 mLng = pos.coords.longitude;
-mAlt = pos.coords.altitude !== null ? pos.coords.altitude : 262;
+mAlt = 
+pos.coords.altitude !== null ? 
+pos.coords.altitude : 262;
 scriviLog("GPS Aggiornato.");
 map.setView([mLat, mLng], 13);
-if (markerU) { markerU.setLatLng([mLat, mLng]); } 
-else { markerU = L.marker([mLat, mLng]).addTo(map); }
+if (markerU) { 
+markerU.setLatLng([mLat, mLng]); 
+} else { 
+markerU = 
+L.marker([mLat, mLng]).addTo(map); 
+}
 disegna();
 }, function() {
-scriviLog("GPS non agganciato. Uso dati demo.", true);
+scriviLog("GPS assente. Uso demo.", true);
 }, { enableHighAccuracy: true });
 }
 disegna();
 } catch (e) {
 scriviLog(e.message, true);
 }
-}, 400);
+}, 300);
 function disegna() {
 strati.forEach(s => map.removeLayer(s));
 strati = [];
-let h = `<table><tr><th>Nome</th><th>Dist</th><th>Azimut</th><th>Elev</th></tr>`;
+let h = `<table><tr>
+<th>Nome</th>
+<th>Dist</th>
+<th>Azimut</th>
+<th>Elev</th>
+</tr>`;
 punti.forEach(p => {
-const m = L.marker([p.lat, p.lng]).addTo(map);
+const m = 
+L.marker([p.lat, p.lng]).addTo(map);
 strati.push(m);
-const l = L.polyline([[mLat, mLng], [p.lat, p.lng]], { color: '#39ff14', weight: 2 }).addTo(map);
+const l = 
+L.polyline(
+[[mLat, mLng], [p.lat, p.lng]], 
+{ color: '#39ff14', weight: 2 }
+).addTo(map);
 strati.push(l);
-const dLat = (p.lat - mLat) * Math.PI / 180;
-const dLng = (p.lng - mLng) * Math.PI / 180;
+const dLat = 
+(p.lat - mLat) * Math.PI / 180;
+const dLng = 
+(p.lng - mLng) * Math.PI / 180;
 const lat1 = mLat * Math.PI / 180;
 const lat2 = p.lat * Math.PI / 180;
-const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLng/2) * Math.sin(dLng/2) * Math.cos(lat1) * Math.cos(lat2);
-const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+const a = 
+Math.sin(dLat/2) * Math.sin(dLat/2) +
+Math.sin(dLng/2) * Math.sin(dLng/2) * 
+Math.cos(lat1) * Math.cos(lat2);
+const c = 
+2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 const d = 6371000 * c;
-const y = Math.sin(dLng) * Math.cos(lat2);
-const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
-const az = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-const el = Math.atan2(p.alt - mAlt, d) * 180 / Math.PI;
-h += `<tr><td>${p.nome}</td><td>${(d/1000).toFixed(1)}km</td><td>${az.toFixed(1)}°</td><td>${el.toFixed(1)}°</td></tr>`;
+const y = 
+Math.sin(dLng) * Math.cos(lat2);
+const x = 
+Math.cos(lat1) * Math.sin(lat2) - 
+Math.sin(lat1) * Math.cos(lat2) * 
+Math.cos(dLng);
+const az = 
+(Math.atan2(y, x) * 180 / Math.PI + 
+360) % 360;
+const el = 
+Math.atan2(p.alt - mAlt, d) * 
+180 / Math.PI;
+h += `<tr>
+<td style="color:#39ff14; 
+font-weight:bold;">${p.nome}</td>
+<td>${(d/1000).toFixed(1)}km</td>
+<td>${az.toFixed(1)}°</td>
+<td>${el.toFixed(1)}°</td>
+</tr>`;
 });
 h += `</table>`;
-if (punti.length > 0) document.getElementById('dati-puntamento').innerHTML = h;
+if (punti.length > 0) {
+document.getElementById(
+'dati-puntamento'
+).innerHTML = h;
+}
 }
 function cancella() {
 if (confirm("Svuotare tutto?")) {
