@@ -23,7 +23,6 @@ padding:8px;
 margin-bottom:10px; 
 background:#143521;
 }
-/* CONTENITORE MAPPA APERTA */
 #map-canvas {
 width:100%;
 height:240px;
@@ -60,9 +59,10 @@ border-bottom:
 font-size:11px;
 }
 button { 
-background:#444; color:#fff; 
-border:none; padding:6px; 
+background:#ff3b30; color:#fff; 
+border:none; padding:8px; 
 width:100%; font-weight:bold;
+margin-bottom:5px;
 }
 </style>
 </head>
@@ -73,21 +73,19 @@ width:100%; font-weight:bold;
 [SYS] Ricezione GPS...
 </div>
 
-<!-- NUOVA MAPPA SATELLITARE ATTIVA -->
+<!-- CONTAINER MAPPA EFFICACE -->
 <div id="map-canvas"></div>
 
-<div class="box" style="font-size:10px; 
-color:#aaa; text-align:center; 
-margin-bottom:5px;">
-💡 Fai TAP sulla mappa satellite per aggiungere punti
-</div>
+<button onclick="aggiungiManuale()">
++ INSERISCI BTS COORDINATE MANUALE
+</button>
 
 <div class="box" style="flex:1; overflow-y:auto;">
 <h3 style="margin:0 0 5px 0;">Puntamenti</h3>
 <div id="tabella">Nessun punto inserito.</div>
 </div>
 
-<button onclick="svuota()">
+<button style="background:#444" onclick="svuota()">
 Svuota Memoria
 </button>
 
@@ -101,29 +99,28 @@ punti = JSON.parse(
 localStorage.getItem('bts_p')
 ) || [];
 
-// DISEGNA MAPPA SATELLITARE NATIVA SENZA BLOCCHI
+// SERVER OPENSTREETMAP APERTO E IMMUNE AI BLOCCHI GITHUB
 function renderMappa() {
 const canvas = document.getElementById('map-canvas');
 canvas.innerHTML = '';
 
-// Calcolo tile satellitari open (Zoom 12 fisso sicuro)
 const zoom = 12;
 const xTile = Math.floor((lngA + 180) / 360 * Math.pow(2, zoom));
 const yTile = Math.floor((1 - Math.log(Math.tan(latA * Math.PI / 180) + 1 / Math.cos(latA * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
 
-// Carica scacchiere di immagini satellite stabili
 for(let i = -1; i <= 1; i++) {
 for(let j = -1; j <= 1; j++) {
 const img = document.createElement('img');
 img.className = 'tile';
-img.src = `https://arcgisonline.com{zoom}/${yTile+j}/${xTile+i}`;
+// Passaggio a server OSM Standard (No blocchi referer)
+img.src = `https://openstreetmap.org{zoom}/${xTile+i}/${yTile+j}.png`;
 img.style.left = `${128 + i * 256 - 128}px`;
 img.style.top = `${120 + j * 256 - 128}px`;
 canvas.appendChild(img);
 }
 }
 
-// Marker centrale (La tua posizione GPS in Giallo)
+// Posizione GPS Utente (Cerchio Giallo)
 const m = document.createElement('div');
 m.className = 'marker';
 m.style.background = '#ffcc00';
@@ -131,7 +128,7 @@ m.style.left = '128px';
 m.style.top = '120px';
 canvas.appendChild(m);
 
-// Mostra i punti inseriti sulla mappa
+// Posizione punti salvati (Cerchi Celesti)
 punti.forEach(p => {
 const pX = 128 + ((p.lng - lngA) * 12000);
 const pY = 120 - ((p.lat - latA) * 18000);
@@ -144,17 +141,15 @@ canvas.appendChild(pm);
 }
 });
 
-// Attiva il TAP sullo schermo per estrarre le coordinate
+// TAP sulla mappa per generare un punto rapido nelle vicinanze
 canvas.onclick = function(e) {
 const rect = canvas.getBoundingClientRect();
 const clickX = e.clientX - rect.left;
 const clickY = e.clientY - rect.top;
-
-// Converte il punto toccato in coordinate reali
 const clickLng = lngA + (clickX - 128) / 12000;
 const clickLat = latA - (clickY - 120) / 18000;
 
-const n = prompt("Nome BTS toccata:");
+const n = prompt("Nome punto intercettato:");
 if (!n) return;
 const alStr = prompt("Altitudine (m s.l.m.):", "0");
 const altB = parseFloat(alStr) || 0;
@@ -164,6 +159,26 @@ localStorage.setItem('bts_p', JSON.stringify(punti));
 renderMappa();
 calcola();
 };
+}
+
+// INSERIMENTO COORDINATE PRECISE (ES: ALBONICO)
+function aggiungiManuale() {
+const n = prompt("Nome BTS (es: Albonico):");
+if (!n) return;
+const laStr = prompt("Latitudine (es: 46.212306):");
+const lnStr = prompt("Longitudine (es: 9.429778):");
+const alStr = prompt("Altitudine metri s.l.m. (es: 608):", "0");
+const latB = parseFloat(laStr);
+const lngB = parseFloat(lnStr);
+const altB = parseFloat(alStr) || 0;
+if (isNaN(latB) || isNaN(lngB)) {
+alert("Dati numerici non validi!");
+return;
+}
+punti.push({nome: n, lat: latB, lng: lngB, alt: altB});
+localStorage.setItem('bts_p', JSON.stringify(punti));
+renderMappa();
+calcola();
 }
 
 if (navigator.geolocation) {
@@ -197,14 +212,14 @@ const y = Math.sin(dLng) * Math.cos(l2);
 const x = Math.cos(l1) * Math.sin(l2) - Math.sin(l1) * Math.cos(l2) * Math.cos(dLng);
 let az = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
 let el = Math.atan2(p.alt - altA, d) * 180 / Math.PI;
-h += `<tr><td><b>${p.nome}</b></td><td>${(d/1000).toFixed(1)}km</td><td>${az.toFixed(1)}°</td><td>${el.toFixed(1)}°</td></tr>`;
+h += `<tr><td><b>${p.nome}</b></td><td>${(d/1000).toFixed(1)}km</td><td style="color:#fff"><b>${az.toFixed(1)}°</b></td><td><b>${el.toFixed(1)}°</b></td></tr>`;
 });
 h += `</table>`;
 document.getElementById('tabella').innerHTML = h;
 }
 
 function svuota() {
-if (confirm("Vuoi cancellare i dati?")) {
+if (confirm("Svuotare l'archivio?")) {
 localStorage.removeItem('bts_p');
 location.reload();
 }
