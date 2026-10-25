@@ -17,27 +17,36 @@ flex-direction:column;
 height:100vh;
 box-sizing:border-box;
 }
-button { 
-background:#ff3b30; 
-color:#fff; border:none; 
-padding:10px; width:100%; 
-margin-bottom:10px; 
-font-weight:bold;
-font-size:13px;
-}
 .box { 
 border:1px solid #1e4d31; 
 padding:8px; 
 margin-bottom:10px; 
 background:#143521;
 }
-/* MAPPA GOOGLE COMPATTA */
-.map-frame {
+/* CONTENITORE MAPPA APERTA */
+#map-canvas {
 width:100%;
-height:220px;
+height:240px;
 border:1px solid #39ff14;
 margin-bottom:10px;
 background:#222;
+position:relative;
+overflow:hidden;
+}
+.tile {
+position:absolute;
+width:256px;
+height:256px;
+}
+.marker {
+position:absolute;
+width:10px;
+height:10px;
+background:cyan;
+border:2px solid #fff;
+border-radius:50%;
+transform:translate(-5px,-5px);
+z-index:10;
 }
 table { 
 width:100%; 
@@ -50,37 +59,35 @@ border-bottom:
 1px solid #1e4d31; 
 font-size:11px;
 }
+button { 
+background:#444; color:#fff; 
+border:none; padding:6px; 
+width:100%; font-weight:bold;
+}
 </style>
 </head>
 <body>
 <h2>BTS-pointer</h2>
 
-<!-- COORDINATE CORRENTI -->
 <div class="box" id="gps">
-[SYS] In attesa del GPS...
+[SYS] Ricezione GPS...
 </div>
 
-<!-- MAPPA SATELLITE GOOGLE -->
-<iframe class="map-frame" 
-src="https://google.com" 
-allowfullscreen="" 
-loading="lazy">
-</iframe>
+<!-- NUOVA MAPPA SATELLITARE ATTIVA -->
+<div id="map-canvas"></div>
 
-<button onclick="aggiungi()">
-+ AGGIUNGI PUNTO (INSERISCI DATA)
-</button>
+<div class="box" style="font-size:10px; 
+color:#aaa; text-align:center; 
+margin-bottom:5px;">
+💡 Fai TAP sulla mappa satellite per aggiungere punti
+</div>
 
-<!-- TABELLA VETTORI -->
 <div class="box" style="flex:1; overflow-y:auto;">
 <h3 style="margin:0 0 5px 0;">Puntamenti</h3>
-<div id="tabella">
-Nessun punto inserito.
-</div>
+<div id="tabella">Nessun punto inserito.</div>
 </div>
 
-<button style="background:#444; padding:6px;" 
-onclick="svuota()">
+<button onclick="svuota()">
 Svuota Memoria
 </button>
 
@@ -94,94 +101,115 @@ punti = JSON.parse(
 localStorage.getItem('bts_p')
 ) || [];
 
+// DISEGNA MAPPA SATELLITARE NATIVA SENZA BLOCCHI
+function renderMappa() {
+const canvas = document.getElementById('map-canvas');
+canvas.innerHTML = '';
+
+// Calcolo tile satellitari open (Zoom 12 fisso sicuro)
+const zoom = 12;
+const xTile = Math.floor((lngA + 180) / 360 * Math.pow(2, zoom));
+const yTile = Math.floor((1 - Math.log(Math.tan(latA * Math.PI / 180) + 1 / Math.cos(latA * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
+
+// Carica scacchiere di immagini satellite stabili
+for(let i = -1; i <= 1; i++) {
+for(let j = -1; j <= 1; j++) {
+const img = document.createElement('img');
+img.className = 'tile';
+img.src = `https://arcgisonline.com{zoom}/${yTile+j}/${xTile+i}`;
+img.style.left = `${128 + i * 256 - 128}px`;
+img.style.top = `${120 + j * 256 - 128}px`;
+canvas.appendChild(img);
+}
+}
+
+// Marker centrale (La tua posizione GPS in Giallo)
+const m = document.createElement('div');
+m.className = 'marker';
+m.style.background = '#ffcc00';
+m.style.left = '128px';
+m.style.top = '120px';
+canvas.appendChild(m);
+
+// Mostra i punti inseriti sulla mappa
+punti.forEach(p => {
+const pX = 128 + ((p.lng - lngA) * 12000);
+const pY = 120 - ((p.lat - latA) * 18000);
+if(pX > 0 && pX < 300 && pY > 0 && pY < 240) {
+const pm = document.createElement('div');
+pm.className = 'marker';
+pm.style.left = `${pX}px`;
+pm.style.top = `${pY}px`;
+canvas.appendChild(pm);
+}
+});
+
+// Attiva il TAP sullo schermo per estrarre le coordinate
+canvas.onclick = function(e) {
+const rect = canvas.getBoundingClientRect();
+const clickX = e.clientX - rect.left;
+const clickY = e.clientY - rect.top;
+
+// Converte il punto toccato in coordinate reali
+const clickLng = lngA + (clickX - 128) / 12000;
+const clickLat = latA - (clickY - 120) / 18000;
+
+const n = prompt("Nome BTS toccata:");
+if (!n) return;
+const alStr = prompt("Altitudine (m s.l.m.):", "0");
+const altB = parseFloat(alStr) || 0;
+
+punti.push({nome: n, lat: clickLat, lng: clickLng, alt: altB});
+localStorage.setItem('bts_p', JSON.stringify(punti));
+renderMappa();
+calcola();
+};
+}
+
 if (navigator.geolocation) {
 navigator.geolocation.watchPosition(
 function(pos) {
 latA = pos.coords.latitude;
 lngA = pos.coords.longitude;
 altA = pos.coords.altitude || 262;
-document.getElementById('gps').
-innerHTML = `[OK] GPS Attivo<br>
-Lat: ${latA.toFixed(5)}<br>
-Lng: ${lngA.toFixed(5)}`;
+document.getElementById('gps').innerHTML = 
+`[OK] GPS Attivo<br>Lat: ${latA.toFixed(5)}<br>Lng: ${lngA.toFixed(5)}`;
+renderMappa();
 calcola();
 }, function() {
-document.getElementById('gps').
-innerHTML = `[ERR] GPS Demo`;
+document.getElementById('gps').innerHTML = `[ERR] GPS Demo`;
+renderMappa();
 calcola();
 }, {enableHighAccuracy:true});
 }
 
-function aggiungi() {
-const n = prompt("Nome BTS (es: Albonico):");
-if (!n) return;
-const laStr = prompt("Inserisci Latitudine (es: 46.212306):");
-const lnStr = prompt("Inserisci Longitudine (es: 9.429778):");
-const alStr = prompt("Altitudine s.l.m. in metri (es: 608):", "0");
-const latB = parseFloat(laStr);
-const lngB = parseFloat(lnStr);
-const altB = parseFloat(alStr) || 0;
-if (isNaN(latB) || isNaN(lngB)) {
-alert("Coordinate inserite non valide!");
-return;
-}
-punti.push({
-nome: n, lat: latB, 
-lng: lngB, alt: altB
-});
-localStorage.setItem('bts_p', 
-JSON.stringify(punti));
-calcola();
-}
-
 function calcola() {
 if (punti.length === 0) return;
-let h = `<table><tr>
-<th>Nome</th><th>Dist</th>
-<th>Azimut</th><th>Elev</th>
-</tr>`;
+let h = `<table><tr><th>Nome</th><th>Dist</th><th>Azimut</th><th>Elev</th></tr>`;
 punti.forEach(p => {
-const dLat = (p.lat - latA) * 
-Math.PI / 180;
-const dLng = (p.lng - lngA) * 
-Math.PI / 180;
+const dLat = (p.lat - latA) * Math.PI / 180;
+const dLng = (p.lng - lngA) * Math.PI / 180;
 const l1 = latA * Math.PI / 180;
 const l2 = p.lat * Math.PI / 180;
-const a = Math.sin(dLat/2) * 
-Math.sin(dLat/2) + Math.sin(dLng/2) * 
-Math.sin(dLng/2) * Math.cos(l1) * 
-Math.cos(l2);
-const c = 2 * Math.atan2(
-Math.sqrt(a), Math.sqrt(1-a)
-);
-const d = 6371000 * c;
-const y = Math.sin(dLng) * 
-Math.cos(l2);
-const x = Math.cos(l1) * 
-Math.sin(l2) - Math.sin(l1) * 
-Math.cos(l2) * Math.cos(dLng);
-let az = (Math.atan2(y, x) * 
-180 / Math.PI + 360) % 360;
-let el = Math.atan2(p.alt - altA, d) * 
-180 / Math.PI;
-h += `<tr>
-<td><b>${p.nome}</b></td>
-<td>${(d/1000).toFixed(1)}km</td>
-<td><b style="color:#fff">${az.toFixed(1)}°</b></td>
-<td><b>${el.toFixed(1)}°</b></td>
-</tr>`;
+const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLng/2) * Math.sin(dLng/2) * Math.cos(l1) * Math.cos(l2);
+const d = 6371000 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+const y = Math.sin(dLng) * Math.cos(l2);
+const x = Math.cos(l1) * Math.sin(l2) - Math.sin(l1) * Math.cos(l2) * Math.cos(dLng);
+let az = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+let el = Math.atan2(p.alt - altA, d) * 180 / Math.PI;
+h += `<tr><td><b>${p.nome}</b></td><td>${(d/1000).toFixed(1)}km</td><td>${az.toFixed(1)}°</td><td>${el.toFixed(1)}°</td></tr>`;
 });
 h += `</table>`;
-document.getElementById('tabella').
-innerHTML = h;
+document.getElementById('tabella').innerHTML = h;
 }
 
 function svuota() {
-if (confirm("Vuoi cancellare la griglia?")) {
+if (confirm("Vuoi cancellare i dati?")) {
 localStorage.removeItem('bts_p');
 location.reload();
 }
 }
+renderMappa();
 calcola();
 </script>
 </body>
