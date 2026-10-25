@@ -73,7 +73,6 @@ margin-bottom:5px;
 [SYS] Ricezione GPS...
 </div>
 
-<!-- CONTAINER MAPPA EFFICACE -->
 <div id="map-canvas"></div>
 
 <button onclick="aggiungiManuale()">
@@ -99,7 +98,6 @@ punti = JSON.parse(
 localStorage.getItem('bts_p')
 ) || [];
 
-// SERVER OPENSTREETMAP APERTO E IMMUNE AI BLOCCHI GITHUB
 function renderMappa() {
 const canvas = document.getElementById('map-canvas');
 canvas.innerHTML = '';
@@ -108,19 +106,21 @@ const zoom = 12;
 const xTile = Math.floor((lngA + 180) / 360 * Math.pow(2, zoom));
 const yTile = Math.floor((1 - Math.log(Math.tan(latA * Math.PI / 180) + 1 / Math.cos(latA * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom));
 
+// Generiamo un codice temporale per ingannare la cache del telefono
+const antiCache = new Date().getTime();
+
 for(let i = -1; i <= 1; i++) {
 for(let j = -1; j <= 1; j++) {
 const img = document.createElement('img');
 img.className = 'tile';
-// Passaggio a server OSM Standard (No blocchi referer)
-img.src = `https://openstreetmap.org{zoom}/${xTile+i}/${yTile+j}.png`;
+// Aggiunto parametro finale di sblocco cache (?v=...)
+img.src = `https://openstreetmap.org{zoom}/${xTile+i}/${yTile+j}.png?v=${antiCache}`;
 img.style.left = `${128 + i * 256 - 128}px`;
 img.style.top = `${120 + j * 256 - 128}px`;
 canvas.appendChild(img);
 }
 }
 
-// Posizione GPS Utente (Cerchio Giallo)
 const m = document.createElement('div');
 m.className = 'marker';
 m.style.background = '#ffcc00';
@@ -128,7 +128,6 @@ m.style.left = '128px';
 m.style.top = '120px';
 canvas.appendChild(m);
 
-// Posizione punti salvati (Cerchi Celesti)
 punti.forEach(p => {
 const pX = 128 + ((p.lng - lngA) * 12000);
 const pY = 120 - ((p.lat - latA) * 18000);
@@ -141,7 +140,6 @@ canvas.appendChild(pm);
 }
 });
 
-// TAP sulla mappa per generare un punto rapido nelle vicinanze
 canvas.onclick = function(e) {
 const rect = canvas.getBoundingClientRect();
 const clickX = e.clientX - rect.left;
@@ -149,7 +147,7 @@ const clickY = e.clientY - rect.top;
 const clickLng = lngA + (clickX - 128) / 12000;
 const clickLat = latA - (clickY - 120) / 18000;
 
-const n = prompt("Nome punto intercettato:");
+const n = prompt("Nome punto:");
 if (!n) return;
 const alStr = prompt("Altitudine (m s.l.m.):", "0");
 const altB = parseFloat(alStr) || 0;
@@ -161,7 +159,6 @@ calcola();
 };
 }
 
-// INSERIMENTO COORDINATE PRECISE (ES: ALBONICO)
 function aggiungiManuale() {
 const n = prompt("Nome BTS (es: Albonico):");
 if (!n) return;
@@ -172,7 +169,7 @@ const latB = parseFloat(laStr);
 const lngB = parseFloat(lnStr);
 const altB = parseFloat(alStr) || 0;
 if (isNaN(latB) || isNaN(lngB)) {
-alert("Dati numerici non validi!");
+alert("Dati non validi!");
 return;
 }
 punti.push({nome: n, lat: latB, lng: lngB, alt: altB});
