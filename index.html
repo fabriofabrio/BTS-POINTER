@@ -8,55 +8,82 @@ initial-scale=1.0">
 <title>BTS</title>
 <style>
 body { 
-margin:0; padding:15px; 
+margin:0; padding:10px; 
 font-family:monospace; 
 background:#0b1d12; 
 color:#39ff14;
+display:flex;
+flex-direction:column;
+height:100vh;
+box-sizing:border-box;
 }
 button { 
 background:#ff3b30; 
 color:#fff; border:none; 
-padding:8px; width:100%; 
-margin-bottom:15px; 
+padding:10px; width:100%; 
+margin-bottom:10px; 
 font-weight:bold;
+font-size:13px;
 }
 .box { 
 border:1px solid #1e4d31; 
-padding:10px; 
-margin-bottom:15px; 
+padding:8px; 
+margin-bottom:10px; 
 background:#143521;
+}
+/* MAPPA GOOGLE COMPATTA */
+.map-frame {
+width:100%;
+height:220px;
+border:1px solid #39ff14;
+margin-bottom:10px;
+background:#222;
 }
 table { 
 width:100%; 
 border-collapse:collapse; 
 }
 td, th { 
-padding:6px; 
+padding:5px; 
 text-align:left; 
 border-bottom:
 1px solid #1e4d31; 
-font-size:12px;
+font-size:11px;
 }
 </style>
 </head>
 <body>
 <h2>BTS-pointer</h2>
+
+<!-- COORDINATE CORRENTI -->
 <div class="box" id="gps">
 [SYS] In attesa del GPS...
 </div>
+
+<!-- MAPPA SATELLITE GOOGLE -->
+<iframe class="map-frame" 
+src="https://google.com" 
+allowfullscreen="" 
+loading="lazy">
+</iframe>
+
 <button onclick="aggiungi()">
-+ AGGIUNGI PUNTO (TAP)
++ AGGIUNGI PUNTO (INSERISCI DATA)
 </button>
-<div class="box">
-<h3>Puntamenti</h3>
+
+<!-- TABELLA VETTORI -->
+<div class="box" style="flex:1; overflow-y:auto;">
+<h3 style="margin:0 0 5px 0;">Puntamenti</h3>
 <div id="tabella">
 Nessun punto inserito.
 </div>
 </div>
-<button style="background:#444" 
+
+<button style="background:#444; padding:6px;" 
 onclick="svuota()">
 Svuota Memoria
 </button>
+
 <script>
 let latA = 46.1314;
 let lngA = 9.5691;
@@ -75,8 +102,8 @@ lngA = pos.coords.longitude;
 altA = pos.coords.altitude || 262;
 document.getElementById('gps').
 innerHTML = `[OK] GPS Attivo<br>
-Lat: ${latA.toFixed(4)}<br>
-Lng: ${lngA.toFixed(4)}`;
+Lat: ${latA.toFixed(5)}<br>
+Lng: ${lngA.toFixed(5)}`;
 calcola();
 }, function() {
 document.getElementById('gps').
@@ -86,16 +113,16 @@ calcola();
 }
 
 function aggiungi() {
-const n = prompt("Nome BTS:");
+const n = prompt("Nome BTS (es: Albonico):");
 if (!n) return;
-const laStr = prompt("Latitudine (es: 46.2123):");
-const lnStr = prompt("Longitudine (es: 9.4297):");
-const alStr = prompt("Altitudine (m s.l.m.):", "0");
+const laStr = prompt("Inserisci Latitudine (es: 46.212306):");
+const lnStr = prompt("Inserisci Longitudine (es: 9.429778):");
+const alStr = prompt("Altitudine s.l.m. in metri (es: 608):", "0");
 const latB = parseFloat(laStr);
 const lngB = parseFloat(lnStr);
 const altB = parseFloat(alStr) || 0;
 if (isNaN(latB) || isNaN(lngB)) {
-alert("Coordinate errate!");
+alert("Coordinate inserite non valide!");
 return;
 }
 punti.push({
@@ -140,8 +167,8 @@ let el = Math.atan2(p.alt - altA, d) *
 h += `<tr>
 <td><b>${p.nome}</b></td>
 <td>${(d/1000).toFixed(1)}km</td>
-<td>${az.toFixed(1)}°</td>
-<td>${el.toFixed(1)}°</td>
+<td><b style="color:#fff">${az.toFixed(1)}°</b></td>
+<td><b>${el.toFixed(1)}°</b></td>
 </tr>`;
 });
 h += `</table>`;
@@ -150,7 +177,7 @@ innerHTML = h;
 }
 
 function svuota() {
-if (confirm("Cancellar tutto?")) {
+if (confirm("Vuoi cancellare la griglia?")) {
 localStorage.removeItem('bts_p');
 location.reload();
 }
