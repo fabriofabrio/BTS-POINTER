@@ -1,1 +1,195 @@
+<!DOCTYPE html>
+<html lang="it" translate="no">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTS Pointer - Monitor Verde</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com" />
+    <script src="https://unpkg.com"></script>
+
+    <style>
+        body { 
+            margin: 0; padding: 0; font-family: Arial, sans-serif; 
+            display: flex; flex-direction: column; height: 100vh; 
+            background-color: #0b1d12; color: #fff;
+        }
+        header { background: #ffffff; padding: 10px 15px; border-bottom: 1px solid #ddd; color: #000; }
+        header h1 { margin: 0; font-size: 24px; }
+        header p { margin: 5px 0 0 0; font-size: 14px; color: #666; }
+        
+        #debug-log {
+            background: #143521; 
+            color: #39ff14; 
+            font-family: monospace; 
+            padding: 12px; font-size: 12px; max-height: 150px; overflow-y: auto;
+            border-bottom: 3px solid #1e4d31;
+        }
+        
+        #map { flex: 2; width: 100%; background: #1a1a1a; min-height: 200px; }
+        
+        #panel { flex: 1; background: #0f2518; padding: 15px; overflow-y: auto; box-sizing: border-box; border-top: 3px solid #39ff14; }
+        h3 { margin-top: 0; color: #39ff14; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 8px; border-bottom: 1px solid #1e4d31; font-size: 13px; }
+        th { background-color: #143521; color: #39ff14; }
+        
+        .btn-clear { background: #ff3b30; color: white; border: none; padding: 6px 12px; cursor: pointer; border-radius: 4px; float: right; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>BTS-pointer</h1>
+        <p>Tracciante bts - Monitor di Stato</p>
+    </header>
+
+    <div id="debug-log">
+        [SYS] Inizializzazione monitor di stato verde...<br>
+    </div>
+
+    <div id="map"></div>
+
+    <div id="panel">
+        <button class="btn-clear" onclick="cancellaTuttiIPunti()">Svuota Mappa</button>
+        <h3>Dati di Puntamento</h3>
+        <div id="dati-puntamento">In attesa del segnale GPS... Interagisci con la mappa per testare i vettori.</div>
+    </div>
+
+    <script>
+        function scriviLog(messaggio, isErrore = false) {
+            const consoleVisiva = document.getElementById('debug-log');
+            const tag = isErrore ? '<span style="color: #ff3b30; font-weight: bold;">[ERRORE]</span>' : '[OK]';
+            consoleVisiva.innerHTML += `${tag} ${messaggio}<br>`;
+            consoleVisiva.scrollTop = consoleVisiva.scrollHeight;
+        }
+
+        window.onerror = function(message, source, lineno, colno, error) {
+            scriviLog(`Blocco codice JavaScript alla linea ${lineno}:${colno} -> ${message}`, true);
+            return false;
+        };
+
+        let map;
+        let miaLat = 46.1314, miaLng = 9.5691, miaAlt = 262; 
+        let puntiSalvati = [];
+        let livelliMappa = [];
+        let markerUtente = null;
+
+        setTimeout(() => {
+            try {
+                if (typeof L === 'undefined') {
+                    throw new Error("Librerie Leaflet.js non rilevate dal browser. Verifica la connessione o estensioni AdBlock.");
+                }
+                scriviLog("Moduli Leaflet core caricati in memoria.");
+
+                puntiSalvati = JSON.parse(localStorage.getItem('punti_bts')) || [];
+                scriviLog(`Database locale letto. Elementi caricati in memoria: ${puntiSalvati.length}`);
+
+                scriviLog("Inizializzazione del canvas cartografico...");
+                map = L.map('map').setView([miaLat, miaLng], 12);
+                scriviLog("Istanziamento dell'oggetto mappa eseguito.");
+
+                scriviLog("Iniezione dei canali cartografici satellitari Esri...");
+                L.tileLayer('https://arcgisonline.com{z}/{y}/{x}', {
+                    attribution: 'Esri'
+                }).addTo(map);
+                scriviLog("Flusso raster satellitare agganciato.");
+
+                L.tileLayer('https://arcgisonline.com{z}/{y}/{x}', {
+                    opacity: 0.8
+                }).addTo(map);
+                scriviLog("Mappa ibrida stradale sovrapposta.");
+
+                map.on('click', function(e) {
+                    const nome = prompt("Inserisci il nome identificativo per questa BTS:");
+                    if (!nome) return;
+                    const altitudineStr = prompt("Inserisci la quota altimetrica in metri s.l.m.:", "0");
+                    const altitudine = parseFloat(altitudineStr) || 0;
+
+                    puntiSalvati.push({ id: Date.now(), nome: nome, lat: e.latlng.lat, lng: e.latlng.lng, alt: altitudine });
+                    localStorage.setItem('punti_bts', JSON.stringify(puntiSalvati));
+                    aggiornaMappaEDati(map);
+                });
+                scriviLog("Rilevamento Tap per immissione punti: ATTIVO.");
+
+                scriviLog("Apertura sessione di ascolto per chip GPS integrato...");
+                if (navigator.geolocation) {
+                    scriviLog("Interfaccia di geolocalizzazione del browser disponibile. Richiesta autorizzazione satelliti...");
+                    navigator.geolocation.watchPosition(function(position) {
+                        miaLat = position.coords.latitude;
+                        miaLng = position.coords.longitude;
+                        miaAlt = position.coords.altitude !== null ? position.coords.altitude : 262;
+
+                        scriviLog(`Aggiornamento coordinate GPS: Lat ${miaLat.toFixed(5)}, Lng ${miaLng.toFixed(5)}, Alt ${miaAlt}m`);
+                        map.setView([miaLat, miaLng], 13);
+
+                        if (markerUtente) {
+                            markerUtente.setLatLng([miaLat, miaLng]);
+                        } else {
+                            markerUtente = L.marker([miaLat, miaLng]).addTo(map).bindPopup("La mia posizione").openPopup();
+                        }
+                        aggiornaMappaEDati(map);
+                    }, function(err) {
+                        scriviLog(`Segnale GPS non agganciato (Errore ${err.code}: ${err.message}). Utilizzo coordinate fisse.`, true);
+                        document.getElementById('dati-puntamento').innerHTML = "GPS in modalità simulata. Fai un TAP sulla mappa per generare tracciati.";
+                    }, { enableHighAccuracy: true, timeout: 8000 });
+                } else {
+                    scriviLog("Geolocalizzazione hardware negata o non supportata dal browser.", true);
+                }
+
+                aggiornaMappaEDati(map);
+                scriviLog("Sistema di calcolo vettoriale avviato. Pronto.");
+
+            } catch (errore) {
+                scriviLog("CRASH APPLICAZIONE: " + errore.message, true);
+                document.getElementById('dati-puntamento').innerHTML = "<b style='color:red;'>Inizializzazione fallita:</b> " + errore.message;
+            }
+        }, 400);
+
+        function aggiornaMappaEDati(mappaOggetto) {
+            livelliMappa.forEach(strato => mappaOggetto.removeLayer(strato));
+            livelliMappa = [];
+
+            let htmlTabella = `<table><tr><th>Nome</th><th>Distanza</th><th>Azimut</th><th>Elevazione</th></tr>`;
+
+            puntiSalvati.forEach(punto => {
+                const m = L.marker([punto.lat, punto.lng]).addTo(mappaOggetto);
+                livelliMappa.push(m);
+
+                const l = L.polyline([[miaLat, miaLng], [punto.lat, punto.lng]], { color: '#39ff14', weight: 2.5, dashArray: '5,5' }).addTo(mappaOggetto);
+                livelliMappa.push(l);
+
+                const dLat = (punto.lat - miaLat) * Math.PI / 180;
+                const dLng = (punto.lng - miaLng) * Math.PI / 180;
+                const lat1 = miaLat * Math.PI / 180;
+                const lat2 = punto.lat * Math.PI / 180;
+
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.sin(dLng/2) * Math.sin(dLng/2) * Math.cos(lat1) * Math.cos(lat2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const dist = 6371000 * c;
+
+                const y = Math.sin(dLng) * Math.cos(lat2);
+                const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+                const azimut = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+                const elevazione = Math.atan2(punto.alt - miaAlt, dist) * 180 / Math.PI;
+
+                htmlTabella += `<tr><td style="color:#39ff14; font-weight:bold;">${punto.nome}</td><td>${(dist/1000).toFixed(2)} km</td><td><b>${azimut.toFixed(1)}°</b></td><td><b>${elevazione.toFixed(1)}°</b></td></tr>`;
+            });
+
+            htmlTabella += `</table>`;
+            if (puntiSalvati.length > 0) {
+                document.getElementById('dati-puntamento').innerHTML = htmlTabella;
+            }
+        }
+
+        function cancellaTuttiIPunti() {
+            if (confirm("Vuoi svuotare la memoria dei vettori?")) {
+                localStorage.removeItem('punti_bts');
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
 
